@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "Seis a Um",
+    "slug": "seis-a-um",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/cover.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/images/cover.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#020403"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.pedro.seisaum",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/cover.png",
+        "backgroundColor": "#020403"
+      }
+    },
+    "ios": {
+      "supportsTablet": false
+    },
+    "extra": {
+      "eas": {
+        "projectId": "28bec706-3d93-49f8-a152-c857cd05f30c"
+      }
+    }
+  }
+}
