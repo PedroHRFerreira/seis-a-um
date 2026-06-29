@@ -4,7 +4,7 @@ import { legendaryTeams } from "@/data/legendaryTeams";
 import { getDraftOptions, getDraftTeam } from "@/game/draft";
 import { findOpenSlotIndexForPlayer } from "@/game/lineup";
 import { applyMatchRuntime, createPlayerStates, swapStarterWithBench } from "@/game/playerState";
-import { createInitialSeason, getCompetitionStates, getNextMatch, simulateNextMatch, simulateUntilEnd } from "@/game/season";
+import { applyMatchResult, createInitialSeason, getCompetitionStates, getNextMatch, simulateNextMatch, simulateUntilEnd } from "@/game/season";
 import { getSeasonSummaries } from "@/game/seasonSummary";
 import { applyCardToDiscipline, simulateMatch } from "@/game/simulation";
 import { calculateTeamStrength, effectivePlayerOverall } from "@/game/teamStrength";
@@ -43,6 +43,31 @@ function draftTeam(seed: string): IUserTeam {
     bench,
     players: starters,
     playerStates: createPlayerStates([...starters, ...bench])
+  };
+}
+
+function resultFor(match: ReturnType<typeof createInitialSeason>["matches"][number], userGoals: number, opponentGoals: number): IMatchResult {
+  return {
+    id: `${match.id}-manual-result`,
+    userTeamName: "Teste FC",
+    opponentName: match.opponent.name,
+    competitionId: match.competitionId,
+    competitionName: match.competitionName,
+    round: match.round,
+    userGoals,
+    opponentGoals,
+    events: [],
+    userStrength: {
+      attack: 90,
+      midfield: 90,
+      defense: 90,
+      goalkeeper: 90,
+      overall: 90
+    },
+    opponentStrength: match.opponent.strength,
+    userRedCards: 0,
+    opponentRedCards: 0,
+    playedAt: "2026-06-27T00:00:00.000Z"
   };
 }
 
@@ -156,6 +181,102 @@ describe("offline game engine", () => {
     expect(season.userTeam.starters).toHaveLength(11);
     expect(season.userTeam.bench).toHaveLength(5);
     expect(Object.keys(season.userTeam.playerStates)).toHaveLength(16);
+  });
+
+  it("builds the 2026 competition formats", () => {
+    const userTeam = draftTeam("formats");
+    const season = createInitialSeason(userTeam, "formats-seed");
+    const mineiro = season.matches.filter((match) => match.competitionId === "mineiro");
+    const copaDoBrasil = season.matches.filter((match) => match.competitionId === "copaDoBrasil");
+    const libertadores = season.matches.filter((match) => match.competitionId === "libertadores");
+
+    expect(mineiro.filter((match) => match.stage === "group")).toHaveLength(8);
+    expect(mineiro.map((match) => match.round)).toEqual([
+      "Primeira fase 1",
+      "Primeira fase 2",
+      "Primeira fase 3",
+      "Primeira fase 4",
+      "Primeira fase 5",
+      "Primeira fase 6",
+      "Primeira fase 7",
+      "Primeira fase 8",
+      "Semifinal ida",
+      "Semifinal volta",
+      "Final"
+    ]);
+    expect(copaDoBrasil.map((match) => match.knockoutKey).filter((key, index, keys) => key && keys.indexOf(key) === index)).toHaveLength(9);
+    expect(copaDoBrasil.filter((match) => match.knockoutLeg === "single")).toHaveLength(5);
+    expect(libertadores.filter((match) => match.stage === "group")).toHaveLength(6);
+    expect(libertadores.filter((match) => match.knockoutLeg === "first")).toHaveLength(3);
+    expect(libertadores.at(-1)?.round).toBe("Final");
+    expect(libertadores.at(-1)?.knockoutLeg).toBe("single");
+  });
+
+  it("adds Brasileirao to trophies only when the user finishes first", () => {
+    const championTeam = draftTeam("brasileirao-champion");
+    let championSeason = createInitialSeason(championTeam, "brasileirao-champion-seed");
+
+    championSeason.matches
+      .filter((match) => match.competitionId === "brasileirao")
+      .forEach((match) => {
+        championSeason = applyMatchResult(championSeason, match.id, resultFor(match, 4, 0));
+      });
+
+    expect(championSeason.records.brasileirao.champion).toBe(true);
+    expect(championSeason.trophies).toContain("brasileirao");
+
+    const runnerUpTeam = draftTeam("brasileirao-runner-up");
+    let runnerUpSeason = createInitialSeason(runnerUpTeam, "brasileirao-runner-up-seed");
+
+    runnerUpSeason.matches
+      .filter((match) => match.competitionId === "brasileirao")
+      .forEach((match) => {
+        runnerUpSeason = applyMatchResult(runnerUpSeason, match.id, resultFor(match, 0, 2));
+      });
+
+    expect(runnerUpSeason.records.brasileirao.champion).toBe(false);
+    expect(runnerUpSeason.trophies).not.toContain("brasileirao");
+  });
+
+  it("awards Copa do Brasil only after the final", () => {
+    const userTeam = draftTeam("copa-title");
+    let season = createInitialSeason(userTeam, "copa-title-seed");
+    const copaMatches = season.matches.filter((match) => match.competitionId === "copaDoBrasil");
+
+    copaMatches.slice(0, -1).forEach((match) => {
+      season = applyMatchResult(season, match.id, resultFor(match, 2, 0));
+      expect(season.trophies).not.toContain("copaDoBrasil");
+    });
+
+    const final = copaMatches.at(-1)!;
+    season = applyMatchResult(season, final.id, resultFor(final, 1, 0));
+
+    expect(season.records.copaDoBrasil.champion).toBe(true);
+    expect(season.trophies).toContain("copaDoBrasil");
+  });
+
+  it("resolves two-legged knockout phases by aggregate", () => {
+    const userTeam = draftTeam("aggregate");
+    let season = createInitialSeason(userTeam, "aggregate-seed");
+    const [firstLeg, secondLeg] = season.matches.filter((match) => match.competitionId === "copaDoBrasil" && match.knockoutKey === "quinta");
+
+    season = applyMatchResult(season, firstLeg.id, resultFor(firstLeg, 0, 2));
+    season = applyMatchResult(season, secondLeg.id, resultFor(secondLeg, 1, 0));
+
+    expect(season.records.copaDoBrasil.eliminated).toBe(true);
+    expect(season.matches.find((match) => match.competitionId === "copaDoBrasil" && match.round === "Oitavas ida")?.skipped).toBe(true);
+  });
+
+  it("simulates knockout draws with a penalty winner", () => {
+    const userTeam = draftTeam("shootout");
+    const season = createInitialSeason(userTeam, "shootout-seed");
+    const knockout = season.matches.find((match) => match.competitionId === "copaDoBrasil" && match.round === "1ª fase")!;
+    const draws = Array.from({ length: 40 }, (_, index) => simulateMatch(season, knockout, `shootout-${index}`)).filter(
+      (result) => result.events.some((event) => event.description.includes("pênaltis"))
+    );
+
+    expect(draws.length).toBeGreaterThan(0);
+    expect(draws.every((result) => result.userGoals !== result.opponentGoals)).toBe(true);
   });
 
   it("simulates matches deterministically with a seed", () => {

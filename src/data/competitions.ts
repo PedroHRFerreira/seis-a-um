@@ -52,7 +52,8 @@ export const copaDoBrasilOpponents: IOpponent[] = [
   { id: "fortaleza-cdb-2026", name: "Fortaleza 2026", shortName: "FOR", country: "Brasil", strength: 83 },
   { id: "corinthians-cdb-2026", name: "Corinthians 2026", shortName: "COR", country: "Brasil", strength: 85 },
   { id: "palmeiras-cdb-2026", name: "Palmeiras 2026", shortName: "PAL", country: "Brasil", strength: 90 },
-  { id: "flamengo-cdb-2026", name: "Flamengo 2026", shortName: "FLA", country: "Brasil", strength: 90 }
+  { id: "flamengo-cdb-2026", name: "Flamengo 2026", shortName: "FLA", country: "Brasil", strength: 90 },
+  { id: "fluminense-cdb-2026", name: "Fluminense 2026", shortName: "FLU", country: "Brasil", strength: 85 }
 ];
 
 export const libertadoresOpponents: IOpponent[] = [
@@ -64,7 +65,8 @@ export const libertadoresOpponents: IOpponent[] = [
   { id: "olimpia-2026", name: "Olimpia 2026", shortName: "OLI", country: "Paraguai", strength: 81 },
   { id: "liga-quito-2026", name: "LDU Quito 2026", shortName: "LDU", country: "Equador", strength: 82 },
   { id: "independiente-del-valle-2026", name: "Independiente del Valle 2026", shortName: "IDV", country: "Equador", strength: 83 },
-  { id: "atletico-nacional-2026", name: "Atletico Nacional 2026", shortName: "NAL", country: "Colombia", strength: 82 }
+  { id: "atletico-nacional-2026", name: "Atletico Nacional 2026", shortName: "NAL", country: "Colombia", strength: 82 },
+  { id: "flamengo-lib-2026", name: "Flamengo 2026", shortName: "FLA", country: "Brasil", strength: 90 }
 ];
 
 export const mundialOpponents: IOpponent[] = [

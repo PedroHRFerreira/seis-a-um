@@ -161,6 +161,9 @@ export interface ISeasonMatch {
   opponent: IOpponent;
   isElimination: boolean;
   isFinal: boolean;
+  stage?: "group" | "league" | "knockout";
+  knockoutKey?: string;
+  knockoutLeg?: "single" | "first" | "second";
   locked?: boolean;
   result?: IMatchResult;
   skipped?: boolean;

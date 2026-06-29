@@ -52,7 +52,8 @@ function match(
   opponent: IOpponent,
   index: number,
   isElimination = false,
-  isFinal = false
+  isFinal = false,
+  metadata: Pick<ISeasonMatch, "stage" | "knockoutKey" | "knockoutLeg"> = {}
 ): ISeasonMatch {
   return {
     id: `${competitionId}-${index + 1}-${opponent.id}`,
@@ -61,18 +62,25 @@ function match(
     round,
     opponent,
     isElimination,
-    isFinal
+    isFinal,
+    ...metadata
   };
 }
 
 function buildMineiro() {
-  const groupMatches = mineiroOpponents.slice(0, 8).map((opponent, index) => match("mineiro", `Primeira fase ${index + 1}`, opponent, index));
+  const groupMatches = mineiroOpponents
+    .slice(0, 8)
+    .map((opponent, index) => match("mineiro", `Primeira fase ${index + 1}`, opponent, index, false, false, { stage: "group" }));
   const semiOpponent = mineiroOpponents[8];
   const semi = [
-    match("mineiro", "Semifinal ida", semiOpponent, 8),
-    match("mineiro", "Semifinal volta", semiOpponent, 9, true)
+    match("mineiro", "Semifinal ida", semiOpponent, 8, false, false, { stage: "knockout", knockoutKey: "semifinal", knockoutLeg: "first" }),
+    match("mineiro", "Semifinal volta", semiOpponent, 9, true, false, { stage: "knockout", knockoutKey: "semifinal", knockoutLeg: "second" })
   ];
-  const final = match("mineiro", "Final", mineiroOpponents[10], 10, true, true);
+  const final = match("mineiro", "Final", mineiroOpponents[10], 10, true, true, {
+    stage: "knockout",
+    knockoutKey: "final",
+    knockoutLeg: "single"
+  });
 
   return [...groupMatches, ...semi, final];
 }
@@ -80,29 +88,68 @@ function buildMineiro() {
 function buildBrasileirao() {
   return [...brasileiraoOpponents, ...brasileiraoOpponents]
     .slice(0, 38)
-    .map((opponent, index) => match("brasileirao", `Rodada ${index + 1}`, opponent, index));
+    .map((opponent, index) => match("brasileirao", `Rodada ${index + 1}`, opponent, index, false, false, { stage: "league" }));
 }
 
 function buildCopaDoBrasil() {
   return [
-    match("copaDoBrasil", "1ª fase", copaDoBrasilOpponents[0], 0, true),
-    match("copaDoBrasil", "2ª fase", copaDoBrasilOpponents[1], 1, true),
-    match("copaDoBrasil", "3ª fase", copaDoBrasilOpponents[2], 2, true),
-    match("copaDoBrasil", "Oitavas ida", copaDoBrasilOpponents[3], 3),
-    match("copaDoBrasil", "Oitavas volta", copaDoBrasilOpponents[3], 4, true),
-    match("copaDoBrasil", "Quartas ida", copaDoBrasilOpponents[4], 5),
-    match("copaDoBrasil", "Quartas volta", copaDoBrasilOpponents[4], 6, true),
-    match("copaDoBrasil", "Semifinal ida", copaDoBrasilOpponents[5], 7),
-    match("copaDoBrasil", "Semifinal volta", copaDoBrasilOpponents[5], 8, true),
-    match("copaDoBrasil", "Final", copaDoBrasilOpponents[7], 9, true, true)
+    match("copaDoBrasil", "1ª fase", copaDoBrasilOpponents[0], 0, true, false, { stage: "knockout", knockoutKey: "primeira", knockoutLeg: "single" }),
+    match("copaDoBrasil", "2ª fase", copaDoBrasilOpponents[1], 1, true, false, { stage: "knockout", knockoutKey: "segunda", knockoutLeg: "single" }),
+    match("copaDoBrasil", "3ª fase", copaDoBrasilOpponents[2], 2, true, false, { stage: "knockout", knockoutKey: "terceira", knockoutLeg: "single" }),
+    match("copaDoBrasil", "4ª fase", copaDoBrasilOpponents[3], 3, true, false, { stage: "knockout", knockoutKey: "quarta", knockoutLeg: "single" }),
+    match("copaDoBrasil", "5ª fase ida", copaDoBrasilOpponents[4], 4, false, false, { stage: "knockout", knockoutKey: "quinta", knockoutLeg: "first" }),
+    match("copaDoBrasil", "5ª fase volta", copaDoBrasilOpponents[4], 5, true, false, { stage: "knockout", knockoutKey: "quinta", knockoutLeg: "second" }),
+    match("copaDoBrasil", "Oitavas ida", copaDoBrasilOpponents[5], 6, false, false, { stage: "knockout", knockoutKey: "oitavas", knockoutLeg: "first" }),
+    match("copaDoBrasil", "Oitavas volta", copaDoBrasilOpponents[5], 7, true, false, { stage: "knockout", knockoutKey: "oitavas", knockoutLeg: "second" }),
+    match("copaDoBrasil", "Quartas ida", copaDoBrasilOpponents[6], 8, false, false, { stage: "knockout", knockoutKey: "quartas", knockoutLeg: "first" }),
+    match("copaDoBrasil", "Quartas volta", copaDoBrasilOpponents[6], 9, true, false, { stage: "knockout", knockoutKey: "quartas", knockoutLeg: "second" }),
+    match("copaDoBrasil", "Semifinal ida", copaDoBrasilOpponents[7], 10, false, false, { stage: "knockout", knockoutKey: "semifinal", knockoutLeg: "first" }),
+    match("copaDoBrasil", "Semifinal volta", copaDoBrasilOpponents[7], 11, true, false, { stage: "knockout", knockoutKey: "semifinal", knockoutLeg: "second" }),
+    match("copaDoBrasil", "Final", copaDoBrasilOpponents[8], 12, true, true, { stage: "knockout", knockoutKey: "final", knockoutLeg: "single" })
   ];
 }
 
 function buildLibertadores() {
-  const group = libertadoresOpponents.slice(0, 6).map((opponent, index) => match("libertadores", `Grupo ${index + 1}`, opponent, index));
-  const knockouts = ["Oitavas", "Quartas", "Semifinal", "Final"].map((round, index) =>
-    match("libertadores", round, libertadoresOpponents[(index + 6) % libertadoresOpponents.length], index + 6, true, round === "Final")
-  );
+  const group = libertadoresOpponents
+    .slice(0, 6)
+    .map((opponent, index) => match("libertadores", `Grupo ${index + 1}`, opponent, index, false, false, { stage: "group" }));
+  const knockouts = [
+    match("libertadores", "Oitavas ida", libertadoresOpponents[6], 6, false, false, {
+      stage: "knockout",
+      knockoutKey: "oitavas",
+      knockoutLeg: "first"
+    }),
+    match("libertadores", "Oitavas volta", libertadoresOpponents[6], 7, true, false, {
+      stage: "knockout",
+      knockoutKey: "oitavas",
+      knockoutLeg: "second"
+    }),
+    match("libertadores", "Quartas ida", libertadoresOpponents[7], 8, false, false, {
+      stage: "knockout",
+      knockoutKey: "quartas",
+      knockoutLeg: "first"
+    }),
+    match("libertadores", "Quartas volta", libertadoresOpponents[7], 9, true, false, {
+      stage: "knockout",
+      knockoutKey: "quartas",
+      knockoutLeg: "second"
+    }),
+    match("libertadores", "Semifinal ida", libertadoresOpponents[8], 10, false, false, {
+      stage: "knockout",
+      knockoutKey: "semifinal",
+      knockoutLeg: "first"
+    }),
+    match("libertadores", "Semifinal volta", libertadoresOpponents[8], 11, true, false, {
+      stage: "knockout",
+      knockoutKey: "semifinal",
+      knockoutLeg: "second"
+    }),
+    match("libertadores", "Final", libertadoresOpponents[9], 12, true, true, {
+      stage: "knockout",
+      knockoutKey: "final",
+      knockoutLeg: "single"
+    })
+  ];
 
   return [...group, ...knockouts];
 }
@@ -149,6 +196,50 @@ function recordResult(record: ICompetitionRecord, result: IMatchResult): ICompet
   };
 }
 
+function goalDifference(row: Pick<IStandingRow, "goalsFor" | "goalsAgainst">) {
+  return row.goalsFor - row.goalsAgainst;
+}
+
+function compareStandingRows(a: IStandingRow, b: IStandingRow) {
+  if (b.points !== a.points) {
+    return b.points - a.points;
+  }
+
+  if (b.wins !== a.wins) {
+    return b.wins - a.wins;
+  }
+
+  if (goalDifference(b) !== goalDifference(a)) {
+    return goalDifference(b) - goalDifference(a);
+  }
+
+  return b.goalsFor - a.goalsFor;
+}
+
+function addTrophy(trophies: CompetitionId[], competitionId: CompetitionId) {
+  return trophies.includes(competitionId) ? trophies : [...trophies, competitionId];
+}
+
+function markChampion(records: Record<CompetitionId, ICompetitionRecord>, competitionId: CompetitionId) {
+  return {
+    ...records,
+    [competitionId]: {
+      ...records[competitionId],
+      champion: true
+    }
+  };
+}
+
+function markEliminated(records: Record<CompetitionId, ICompetitionRecord>, competitionId: CompetitionId) {
+  return {
+    ...records,
+    [competitionId]: {
+      ...records[competitionId],
+      eliminated: true
+    }
+  };
+}
+
 function skipFutureMatches(matches: ISeasonMatch[], competitionId: CompetitionId, fromIndex: number) {
   return matches.map((matchItem, index) => {
     if (index > fromIndex && matchItem.competitionId === competitionId && !matchItem.result) {
@@ -157,6 +248,152 @@ function skipFutureMatches(matches: ISeasonMatch[], competitionId: CompetitionId
 
     return matchItem;
   });
+}
+
+function competitionComplete(matches: ISeasonMatch[], competitionId: CompetitionId) {
+  return !matches.some((matchItem) => matchItem.competitionId === competitionId && !matchItem.result && !matchItem.skipped);
+}
+
+function competitionPosition(season: ISeasonState, competitionId: CompetitionId) {
+  const competition = getCompetitionStates(season).find((item) => item.id === competitionId);
+  const index = competition?.standings.findIndex((row) => row.isUser) ?? -1;
+
+  return index >= 0 ? index + 1 : 1;
+}
+
+function playedStageMatches(matches: ISeasonMatch[], competitionId: CompetitionId, stage: ISeasonMatch["stage"]) {
+  return matches.filter((matchItem) => matchItem.competitionId === competitionId && matchItem.stage === stage && matchItem.result).length;
+}
+
+function decideGroupStage(
+  season: ISeasonState,
+  records: Record<CompetitionId, ICompetitionRecord>,
+  matches: ISeasonMatch[],
+  playedMatch: ISeasonMatch,
+  matchIndex: number
+) {
+  if (playedMatch.stage !== "group") {
+    return { records, matches };
+  }
+
+  const qualifyingPositions: Partial<Record<CompetitionId, number>> = {
+    mineiro: 4,
+    libertadores: 2
+  };
+  const requiredMatches: Partial<Record<CompetitionId, number>> = {
+    mineiro: 8,
+    libertadores: 6
+  };
+  const required = requiredMatches[playedMatch.competitionId];
+  const cutoff = qualifyingPositions[playedMatch.competitionId];
+
+  if (!required || !cutoff || playedStageMatches(matches, playedMatch.competitionId, "group") < required) {
+    return { records, matches };
+  }
+
+  const position = competitionPosition({ ...season, records, matches }, playedMatch.competitionId);
+
+  if (position <= cutoff) {
+    return { records, matches };
+  }
+
+  return {
+    records: markEliminated(records, playedMatch.competitionId),
+    matches: skipFutureMatches(matches, playedMatch.competitionId, matchIndex)
+  };
+}
+
+function phaseMatches(matches: ISeasonMatch[], playedMatch: ISeasonMatch) {
+  return matches.filter(
+    (matchItem) =>
+      matchItem.competitionId === playedMatch.competitionId &&
+      matchItem.knockoutKey &&
+      matchItem.knockoutKey === playedMatch.knockoutKey &&
+      matchItem.result
+  );
+}
+
+function userAdvancedInKnockout(matches: ISeasonMatch[], playedMatch: ISeasonMatch, result: IMatchResult) {
+  if (playedMatch.knockoutLeg === "first") {
+    return undefined;
+  }
+
+  if (playedMatch.knockoutLeg === "single" || !playedMatch.knockoutKey) {
+    return result.userGoals > result.opponentGoals;
+  }
+
+  const aggregate = phaseMatches(matches, playedMatch).reduce(
+    (total, matchItem) => ({
+      userGoals: total.userGoals + (matchItem.result?.userGoals ?? 0),
+      opponentGoals: total.opponentGoals + (matchItem.result?.opponentGoals ?? 0)
+    }),
+    { userGoals: 0, opponentGoals: 0 }
+  );
+
+  if (aggregate.userGoals !== aggregate.opponentGoals) {
+    return aggregate.userGoals > aggregate.opponentGoals;
+  }
+
+  return result.userGoals >= result.opponentGoals;
+}
+
+function decideKnockout(
+  records: Record<CompetitionId, ICompetitionRecord>,
+  trophies: CompetitionId[],
+  matches: ISeasonMatch[],
+  playedMatch: ISeasonMatch,
+  matchIndex: number,
+  result: IMatchResult
+) {
+  if (playedMatch.stage !== "knockout" && !playedMatch.isElimination) {
+    return { records, trophies, matches };
+  }
+
+  const advanced = userAdvancedInKnockout(matches, playedMatch, result);
+
+  if (advanced === undefined) {
+    return { records, trophies, matches };
+  }
+
+  if (advanced && playedMatch.isFinal) {
+    return {
+      records: markChampion(records, playedMatch.competitionId),
+      trophies: addTrophy(trophies, playedMatch.competitionId),
+      matches
+    };
+  }
+
+  if (!advanced) {
+    return {
+      records: markEliminated(records, playedMatch.competitionId),
+      trophies,
+      matches: skipFutureMatches(matches, playedMatch.competitionId, matchIndex)
+    };
+  }
+
+  return { records, trophies, matches };
+}
+
+function decideBrasileiraoTitle(
+  season: ISeasonState,
+  records: Record<CompetitionId, ICompetitionRecord>,
+  trophies: CompetitionId[],
+  matches: ISeasonMatch[]
+) {
+  if (!competitionComplete(matches, "brasileirao") || records.brasileirao.champion || records.brasileirao.eliminated) {
+    return { records, trophies };
+  }
+
+  const position = competitionPosition({ ...season, records, trophies, matches }, "brasileirao");
+
+  if (position !== 1) {
+    return { records, trophies };
+  }
+
+  return {
+    records: markChampion(records, "brasileirao"),
+    trophies: addTrophy(trophies, "brasileirao")
+  };
 }
 
 function maybeUnlockMundial(season: ISeasonState) {
@@ -182,7 +419,6 @@ export function applyMatchResult(season: ISeasonState, matchId: string, result: 
   }
 
   const playedMatch = season.matches[matchIndex];
-  const userWon = result.userGoals > result.opponentGoals;
   let records = {
     ...season.records,
     [playedMatch.competitionId]: recordResult(season.records[playedMatch.competitionId], result)
@@ -190,27 +426,18 @@ export function applyMatchResult(season: ISeasonState, matchId: string, result: 
   let trophies = [...season.trophies];
   let matches = season.matches.map((matchItem) => (matchItem.id === matchId ? { ...matchItem, result } : matchItem));
 
-  if (playedMatch.isFinal && userWon) {
-    records = {
-      ...records,
-      [playedMatch.competitionId]: {
-        ...records[playedMatch.competitionId],
-        champion: true
-      }
-    };
-    trophies = trophies.includes(playedMatch.competitionId) ? trophies : [...trophies, playedMatch.competitionId];
-  }
+  const groupDecision = decideGroupStage(season, records, matches, playedMatch, matchIndex);
+  records = groupDecision.records;
+  matches = groupDecision.matches;
 
-  if (playedMatch.isElimination && !userWon) {
-    records = {
-      ...records,
-      [playedMatch.competitionId]: {
-        ...records[playedMatch.competitionId],
-        eliminated: true
-      }
-    };
-    matches = skipFutureMatches(matches, playedMatch.competitionId, matchIndex);
-  }
+  const knockoutDecision = decideKnockout(records, trophies, matches, playedMatch, matchIndex, result);
+  records = knockoutDecision.records;
+  trophies = knockoutDecision.trophies;
+  matches = knockoutDecision.matches;
+
+  const brasileiraoDecision = decideBrasileiraoTitle(season, records, trophies, matches);
+  records = brasileiraoDecision.records;
+  trophies = brasileiraoDecision.trophies;
 
   const nextIndex = matches.findIndex((matchItem, index) => index > matchIndex && !matchItem.result && !matchItem.skipped && !matchItem.locked);
   const userTeam = applyMatchRuntime(season.userTeam, result);
@@ -312,13 +539,7 @@ export function getCompetitionStates(season: ISeasonState): ICompetitionState[] 
       strength: 0,
       isUser: true
     };
-    const standings = [userRow, ...fakeStandingRows(competitionId, record.played, season.id)].sort((a, b) => {
-      if (b.points !== a.points) {
-        return b.points - a.points;
-      }
-
-      return b.goalsFor - b.goalsAgainst - (a.goalsFor - a.goalsAgainst);
-    });
+    const standings = [userRow, ...fakeStandingRows(competitionId, record.played, season.id)].sort(compareStandingRows);
 
     return {
       id: competitionId,

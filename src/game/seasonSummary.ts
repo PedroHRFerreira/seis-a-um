@@ -42,6 +42,10 @@ function firstSkippedRound(matches: ISeasonMatch[], competitionId: CompetitionId
   return matches.find((match) => match.competitionId === competitionId && match.skipped)?.round;
 }
 
+function playedStageMatches(matches: ISeasonMatch[], competitionId: CompetitionId, stage: ISeasonMatch["stage"]) {
+  return matches.filter((match) => match.competitionId === competitionId && match.stage === stage && match.result).length;
+}
+
 function statusForCompetition(season: ISeasonState, competition: ICompetitionState, position: number) {
   const record = competition.record;
   const lostElimination = firstLostElimination(season.matches, competition.id);
@@ -49,15 +53,8 @@ function statusForCompetition(season: ISeasonState, competition: ICompetitionSta
   const lastRound = lastPlayedRound(season.matches, competition.id);
   const groupName = groupNames[competition.id];
 
-  if (record.champion) {
-    return {
-      headline: "Campeão",
-      detail: `Título confirmado após ${record.played} jogo(s).`
-    };
-  }
-
   if (competition.id === "brasileirao") {
-    if (position === 1) {
+    if (record.champion || position === 1) {
       return {
         headline: "Campeão brasileiro",
         detail: `${record.played} rodada(s), ${record.wins} vitória(s), ${record.draws} empate(s) e ${record.losses} derrota(s).`
@@ -70,6 +67,13 @@ function statusForCompetition(season: ISeasonState, competition: ICompetitionSta
     };
   }
 
+  if (record.champion) {
+    return {
+      headline: "Campeão",
+      detail: `Título confirmado após ${record.played} jogo(s).`
+    };
+  }
+
   if (lostElimination) {
     return {
       headline: `Eliminado em ${lostElimination.round}`,
@@ -77,10 +81,34 @@ function statusForCompetition(season: ISeasonState, competition: ICompetitionSta
     };
   }
 
+  if (
+    competition.id === "mineiro" &&
+    record.eliminated &&
+    playedStageMatches(season.matches, "mineiro", "group") >= 8 &&
+    playedStageMatches(season.matches, "mineiro", "knockout") === 0
+  ) {
+    return {
+      headline: "Eliminado na primeira fase",
+      detail: `${groupName}, ${ordinal(position)} colocado.`
+    };
+  }
+
+  if (
+    competition.id === "libertadores" &&
+    record.eliminated &&
+    playedStageMatches(season.matches, "libertadores", "group") >= 6 &&
+    playedStageMatches(season.matches, "libertadores", "knockout") === 0
+  ) {
+    return {
+      headline: "Eliminado na fase de grupos",
+      detail: `${groupName}, ${ordinal(position)} colocado.`
+    };
+  }
+
   if (record.eliminated && skippedRound) {
     return {
-      headline: `Eliminado antes de ${skippedRound}`,
-      detail: `Campanha encerrada em ${lastRound ?? "fase anterior"}.`
+      headline: lastRound ? `Eliminado em ${lastRound}` : `Eliminado antes de ${skippedRound}`,
+      detail: `Próxima fase seria ${skippedRound}.`
     };
   }
 
