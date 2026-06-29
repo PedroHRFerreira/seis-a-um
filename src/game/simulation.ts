@@ -199,7 +199,7 @@ export function simulateMatch(season: ISeasonState, match: ISeasonMatch, seed: s
   }
 
   if (match.isElimination && userGoals === opponentGoals) {
-    const userWinsShootout = random.next() > (season.userTeam.difficulty === "challenger" ? 0.56 : 0.48);
+    const userWinsShootout = random.next() > (season.userTeam.difficulty === "challenger" ? 0.5 : 0.42);
 
     if (userWinsShootout) {
       userGoals += 1;

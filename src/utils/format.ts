@@ -9,7 +9,7 @@ export function percent(value: number) {
 }
 
 export function difficultyLabel(difficulty: Difficulty) {
-  return difficulty === "challenger" ? "Desafiador" : "Difícil";
+  return difficulty === "challenger" ? "Desafiador" : "Normal";
 }
 
 export function positionLabel(position: Position) {

@@ -15,7 +15,7 @@ export type Position =
   | "SS"
   | "ST";
 
-export type Difficulty = "hard" | "challenger";
+export type Difficulty = "normal" | "challenger";
 
 export type MatchSpeed = "normal" | "fast" | "finish";
 

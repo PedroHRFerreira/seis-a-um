@@ -4,18 +4,19 @@ import { AppButton } from "@/components/AppButton";
 import { ScreenShell } from "@/components/ScreenShell";
 import { getNextMatch, simulateNextMatch } from "@/game/season";
 import { theme } from "@/theme/theme";
-import { IMatchResult, ISeasonState, MatchSpeed } from "@/types/game";
+import { CompetitionId, IMatchResult, ISeasonState, MatchSpeed } from "@/types/game";
 import { clamp, resultLabel } from "@/utils/format";
 
 interface IMatchScreenProps {
   season: ISeasonState;
+  competitionId?: CompetitionId;
   speed: MatchSpeed;
   onComplete: (season: ISeasonState) => void;
 }
 
-export function MatchScreen({ season, speed, onComplete }: IMatchScreenProps) {
-  const nextMatch = getNextMatch(season);
-  const simulation = useMemo(() => (nextMatch ? simulateNextMatch(season, `${speed}-${Date.now()}`) : undefined), [nextMatch, season, speed]);
+export function MatchScreen({ season, competitionId, speed, onComplete }: IMatchScreenProps) {
+  const nextMatch = getNextMatch(season, competitionId);
+  const simulation = useMemo(() => (nextMatch ? simulateNextMatch(season, `${speed}-${Date.now()}`, competitionId) : undefined), [competitionId, nextMatch, season, speed]);
   const result = simulation?.result;
   const [visibleEvents, setVisibleEvents] = useState(0);
   const [done, setDone] = useState(false);

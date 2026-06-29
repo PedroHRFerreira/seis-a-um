@@ -21,7 +21,7 @@ interface ISetupScreenProps {
 
 export function SetupScreen({ onBack, onComplete }: ISetupScreenProps) {
   const [name, setName] = useState("Meu Time");
-  const [difficulty, setDifficulty] = useState<Difficulty>("hard");
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [formationId, setFormationId] = useState("4-1-2-1-2");
   const [playStyleId, setPlayStyleId] = useState(playStyles[0].id);
   const [formationMentality, setFormationMentality] = useState<FormationMentality>("balanced");
@@ -57,7 +57,7 @@ export function SetupScreen({ onBack, onComplete }: ISetupScreenProps) {
       <View style={styles.section}>
         <Text style={styles.label}>Dificuldade</Text>
         <View style={styles.row}>
-          <Chip label="Difícil" selected={difficulty === "hard"} onPress={() => setDifficulty("hard")} />
+          <Chip label="Normal" selected={difficulty === "normal"} onPress={() => setDifficulty("normal")} />
           <Chip label="Desafiador" selected={difficulty === "challenger"} onPress={() => setDifficulty("challenger")} />
         </View>
       </View>

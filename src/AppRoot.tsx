@@ -7,19 +7,21 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { formations } from "@/data/formations";
 import { DraftLineup, findOpenSlotIndexForPlayer, isLineupComplete } from "@/game/lineup";
 import { createPlayerStates } from "@/game/playerState";
-import { createInitialSeason, simulateUntilEnd } from "@/game/season";
+import { createInitialSeason, simulateCompetitionUntilEnd } from "@/game/season";
 import { clearSeason, loadSeason, saveSeason } from "@/storage/saveStorage";
 import { theme } from "@/theme/theme";
-import { Difficulty, FormationMentality, IPlayer, ISeasonState, IUserTeam, MatchSpeed } from "@/types/game";
+import { CompetitionId, Difficulty, FormationMentality, IPlayer, ISeasonState, IUserTeam, MatchSpeed } from "@/types/game";
+import { CompetitionSelectScreen } from "@/screens/CompetitionSelectScreen";
 import { DraftScreen } from "@/screens/DraftScreen";
 import { HomeScreen } from "@/screens/HomeScreen";
 import { MatchScreen } from "@/screens/MatchScreen";
+import { PreMatchScreen } from "@/screens/PreMatchScreen";
 import { SeasonScreen } from "@/screens/SeasonScreen";
 import { SetupScreen } from "@/screens/SetupScreen";
 import { SquadScreen } from "@/screens/SquadScreen";
 import { SummaryScreen } from "@/screens/SummaryScreen";
 
-type Route = "home" | "setup" | "draft" | "squad" | "season" | "match" | "summary";
+type Route = "home" | "setup" | "draft" | "squad" | "season" | "competitions" | "preMatch" | "match" | "summary";
 
 interface ISetupState {
   name: string;
@@ -43,6 +45,7 @@ export function AppRoot() {
   const [selectedPlayers, setSelectedPlayers] = useState<DraftLineup>([]);
   const [benchPlayers, setBenchPlayers] = useState<IPlayer[]>([]);
   const [matchSpeed, setMatchSpeed] = useState<MatchSpeed>("normal");
+  const [selectedCompetitionId, setSelectedCompetitionId] = useState<CompetitionId | undefined>();
 
   useEffect(() => {
     loadSeason()
@@ -86,6 +89,7 @@ export function AppRoot() {
     setSetup(undefined);
     setSelectedPlayers([]);
     setBenchPlayers([]);
+    setSelectedCompetitionId(undefined);
     setRoute("home");
   }
 
@@ -94,6 +98,7 @@ export function AppRoot() {
     setSelectedPlayers([]);
     setBenchPlayers([]);
     setSeason(undefined);
+    setSelectedCompetitionId(undefined);
     setRoute("setup");
   }
 
@@ -174,21 +179,31 @@ export function AppRoot() {
     }
   }
 
-  async function play(speed: MatchSpeed) {
+  function openCompetitionSelect() {
+    setSelectedCompetitionId(undefined);
+    setRoute("competitions");
+  }
+
+  function playCompetition(competitionId: CompetitionId) {
+    setSelectedCompetitionId(competitionId);
+    setMatchSpeed("normal");
+    setRoute("preMatch");
+  }
+
+  async function skipCompetition(competitionId: CompetitionId) {
     if (!season) {
       return;
     }
 
-    if (speed === "finish") {
-      const finishedSeason = simulateUntilEnd(season, `${season.id}-finish`);
-      setSeason(finishedSeason);
-      setSavedSeason(finishedSeason);
-      await saveSeason(finishedSeason);
-      setRoute("summary");
-      return;
-    }
+    const nextSeason = simulateCompetitionUntilEnd(season, competitionId, `${season.id}-${competitionId}-finish`);
+    setSeason(nextSeason);
+    setSavedSeason(nextSeason);
+    await saveSeason(nextSeason);
+    setRoute(nextSeason.finished ? "summary" : "competitions");
+  }
 
-    setMatchSpeed(speed);
+  function startSelectedMatch() {
+    setMatchSpeed("normal");
     setRoute("match");
   }
 
@@ -196,7 +211,7 @@ export function AppRoot() {
     setSeason(nextSeason);
     setSavedSeason(nextSeason);
     await saveSeason(nextSeason);
-    setRoute(nextSeason.finished ? "summary" : "season");
+    setRoute(nextSeason.finished ? "summary" : "competitions");
   }
 
   if (loading || !fontsLoaded) {
@@ -243,11 +258,26 @@ export function AppRoot() {
   }
 
   if (route === "season" && season) {
-    return <SeasonScreen season={season} onManageTeam={() => setRoute("squad")} onPlay={play} onSummary={() => setRoute("summary")} onReset={resetEverything} />;
+    return <SeasonScreen season={season} onManageTeam={() => setRoute("squad")} onPlay={openCompetitionSelect} onSummary={() => setRoute("summary")} onReset={resetEverything} />;
+  }
+
+  if (route === "competitions" && season) {
+    return (
+      <CompetitionSelectScreen
+        season={season}
+        onBack={() => setRoute("season")}
+        onPlayCompetition={playCompetition}
+        onSkipCompetition={skipCompetition}
+      />
+    );
+  }
+
+  if (route === "preMatch" && season && selectedCompetitionId) {
+    return <PreMatchScreen season={season} competitionId={selectedCompetitionId} onBack={() => setRoute("competitions")} onStartMatch={startSelectedMatch} />;
   }
 
   if (route === "match" && season) {
-    return <MatchScreen season={season} speed={matchSpeed} onComplete={completeMatch} />;
+    return <MatchScreen season={season} competitionId={selectedCompetitionId} speed={matchSpeed} onComplete={completeMatch} />;
   }
 
   if (route === "summary" && season) {

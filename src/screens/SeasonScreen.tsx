@@ -3,13 +3,13 @@ import { AppButton } from "@/components/AppButton";
 import { ScreenShell } from "@/components/ScreenShell";
 import { getCompetitionStates, getNextMatch } from "@/game/season";
 import { theme } from "@/theme/theme";
-import { ISeasonState, MatchSpeed } from "@/types/game";
+import { ISeasonState } from "@/types/game";
 import { competitionLabel } from "@/utils/format";
 
 interface ISeasonScreenProps {
   season: ISeasonState;
   onManageTeam: () => void;
-  onPlay: (speed: MatchSpeed) => void;
+  onPlay: () => void;
   onSummary: () => void;
   onReset: () => void;
 }
@@ -26,11 +26,7 @@ export function SeasonScreen({ season, onManageTeam, onPlay, onSummary, onReset 
         season.finished ? (
           <AppButton label="Ver resumo final" onPress={onSummary} />
         ) : (
-          <View style={styles.footer}>
-            <AppButton label="Jogar" onPress={() => onPlay("normal")} style={styles.footerButton} />
-            <AppButton label="Rápido" onPress={() => onPlay("fast")} variant="secondary" style={styles.footerButton} />
-            <AppButton label="Final" onPress={() => onPlay("finish")} variant="ghost" style={styles.footerButton} />
-          </View>
+          <AppButton label="Jogar" onPress={onPlay} />
         )
       }
     >
@@ -42,7 +38,7 @@ export function SeasonScreen({ season, onManageTeam, onPlay, onSummary, onReset 
           <>
             <Text style={styles.nextTitle}>{nextMatch.opponent.name}</Text>
             <Text style={styles.nextMeta}>{nextMatch.competitionName} | {nextMatch.round}</Text>
-            <Text style={styles.startHint}>Toque em Jogar para começar a partida.</Text>
+            <Text style={styles.startHint}>Toque em Jogar para escolher a competição.</Text>
           </>
         ) : (
           <Text style={styles.nextMeta}>Temporada encerrada.</Text>
@@ -211,11 +207,5 @@ const styles = StyleSheet.create({
     fontFamily: theme.typography.label.fontFamily,
     fontWeight: "900"
   },
-  footer: {
-    flexDirection: "row",
-    gap: theme.spacing.sm
-  },
-  footerButton: {
-    flex: 1
-  }
+  footer: {}
 });

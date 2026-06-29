@@ -1,16 +1,18 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createPlayerStates } from "@/game/playerState";
 import { ISeasonState, IUserTeam } from "@/types/game";
+import { normalizeDifficulty } from "@/utils/difficulty";
 
 const SAVE_KEY = "@seis-a-um/current-season";
 let memorySeason: ISeasonState | undefined;
 
-function normalizeUserTeam(userTeam: IUserTeam): IUserTeam {
+export function normalizeUserTeam(userTeam: IUserTeam): IUserTeam {
   const starters = (userTeam.starters?.length ?? 0) > 0 ? userTeam.starters : userTeam.players ?? [];
   const bench = userTeam.bench ?? [];
 
   return {
     ...userTeam,
+    difficulty: normalizeDifficulty(userTeam.difficulty),
     formationMentality: userTeam.formationMentality ?? "balanced",
     starters,
     bench,
@@ -19,7 +21,7 @@ function normalizeUserTeam(userTeam: IUserTeam): IUserTeam {
   };
 }
 
-function normalizeSeason(season: ISeasonState): ISeasonState {
+export function normalizeSeason(season: ISeasonState): ISeasonState {
   return {
     ...season,
     userTeam: normalizeUserTeam(season.userTeam)

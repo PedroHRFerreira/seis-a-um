@@ -176,8 +176,20 @@ export function createInitialSeason(userTeam: IUserTeam, seed = Date.now().toStr
   };
 }
 
-export function getNextMatch(season: ISeasonState) {
-  return season.matches.find((matchItem, index) => index >= season.currentMatchIndex && !matchItem.result && !matchItem.skipped && !matchItem.locked);
+export function getNextMatch(season: ISeasonState, competitionId?: CompetitionId) {
+  return season.matches.find((matchItem, index) => {
+    if (!competitionId && index < season.currentMatchIndex) {
+      return false;
+    }
+
+    return (
+      (!competitionId || matchItem.competitionId === competitionId) &&
+      isCompetitionUnlocked(season, matchItem.competitionId) &&
+      !matchItem.result &&
+      !matchItem.skipped &&
+      !matchItem.locked
+    );
+  });
 }
 
 function recordResult(record: ICompetitionRecord, result: IMatchResult): ICompetitionRecord {
@@ -396,6 +408,22 @@ function decideBrasileiraoTitle(
   };
 }
 
+export function isCompetitionUnlocked(season: ISeasonState, competitionId: CompetitionId) {
+  if (competitionId === "mineiro" || competitionId === "brasileirao" || competitionId === "copaDoBrasil") {
+    return true;
+  }
+
+  if (competitionId === "libertadores") {
+    const libertadoresStarted = season.records.libertadores.played > 0 || season.trophies.includes("libertadores");
+    const copaChampion = season.trophies.includes("copaDoBrasil");
+    const brasileiraoG4 = competitionComplete(season.matches, "brasileirao") && competitionPosition(season, "brasileirao") <= 4;
+
+    return libertadoresStarted || copaChampion || brasileiraoG4;
+  }
+
+  return season.trophies.includes("libertadores");
+}
+
 function maybeUnlockMundial(season: ISeasonState) {
   const hasMundial = season.matches.some((matchItem) => matchItem.competitionId === "mundial");
 
@@ -406,7 +434,6 @@ function maybeUnlockMundial(season: ISeasonState) {
   return {
     ...season,
     matches: [...season.matches, ...buildMundial(season.matches.length)],
-    currentMatchIndex: season.matches.length,
     finished: false
   };
 }
@@ -439,24 +466,28 @@ export function applyMatchResult(season: ISeasonState, matchId: string, result: 
   records = brasileiraoDecision.records;
   trophies = brasileiraoDecision.trophies;
 
-  const nextIndex = matches.findIndex((matchItem, index) => index > matchIndex && !matchItem.result && !matchItem.skipped && !matchItem.locked);
   const userTeam = applyMatchRuntime(season.userTeam, result);
-  const updated: ISeasonState = {
+  const baseUpdated: ISeasonState = {
     ...season,
     userTeam,
     matches,
     records,
     trophies,
-    currentMatchIndex: nextIndex >= 0 ? nextIndex : matches.length,
-    finished: nextIndex < 0,
     updatedAt: new Date().toISOString()
   };
+  const unlocked = maybeUnlockMundial(baseUpdated);
+  const next = getNextMatch(unlocked);
+  const nextIndex = next ? unlocked.matches.findIndex((matchItem) => matchItem.id === next.id) : -1;
 
-  return maybeUnlockMundial(updated);
+  return {
+    ...unlocked,
+    currentMatchIndex: nextIndex >= 0 ? nextIndex : unlocked.matches.length,
+    finished: nextIndex < 0
+  };
 }
 
-export function simulateNextMatch(season: ISeasonState, seed = Date.now().toString()) {
-  const next = getNextMatch(season);
+export function simulateNextMatch(season: ISeasonState, seed = Date.now().toString(), competitionId?: CompetitionId) {
+  const next = getNextMatch(season, competitionId);
 
   if (!next) {
     return { season: { ...season, finished: true }, result: undefined };
@@ -466,6 +497,25 @@ export function simulateNextMatch(season: ISeasonState, seed = Date.now().toStri
   return {
     season: applyMatchResult(season, next.id, result),
     result
+  };
+}
+
+export function simulateCompetitionUntilEnd(season: ISeasonState, competitionId: CompetitionId, seed = "finish-competition") {
+  let current = season;
+  let guard = 0;
+
+  while (getNextMatch(current, competitionId) && guard < 60) {
+    current = simulateNextMatch(current, `${seed}-${guard}`, competitionId).season;
+    guard += 1;
+  }
+
+  const next = getNextMatch(current);
+
+  return {
+    ...current,
+    currentMatchIndex: next ? current.matches.findIndex((matchItem) => matchItem.id === next.id) : current.matches.length,
+    finished: !next,
+    updatedAt: new Date().toISOString()
   };
 }
 

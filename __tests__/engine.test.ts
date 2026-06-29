@@ -1,14 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { formations } from "@/data/formations";
 import { legendaryTeams } from "@/data/legendaryTeams";
+import { getOpponentSquad } from "@/data/opponentSquads";
 import { getDraftOptions, getDraftTeam } from "@/game/draft";
 import { findOpenSlotIndexForPlayer } from "@/game/lineup";
 import { applyMatchRuntime, createPlayerStates, swapStarterWithBench } from "@/game/playerState";
-import { applyMatchResult, createInitialSeason, getCompetitionStates, getNextMatch, simulateNextMatch, simulateUntilEnd } from "@/game/season";
+import {
+  applyMatchResult,
+  createInitialSeason,
+  getCompetitionStates,
+  getNextMatch,
+  isCompetitionUnlocked,
+  simulateCompetitionUntilEnd,
+  simulateNextMatch,
+  simulateUntilEnd
+} from "@/game/season";
 import { getSeasonSummaries } from "@/game/seasonSummary";
 import { applyCardToDiscipline, simulateMatch } from "@/game/simulation";
-import { calculateTeamStrength, effectivePlayerOverall } from "@/game/teamStrength";
+import { calculateTeamStrength, effectivePlayerOverall, opponentDifficultyBonus } from "@/game/teamStrength";
 import { ICompetitionState, IMatchResult, IPlayer, IUserTeam } from "@/types/game";
+import { normalizeDifficulty } from "@/utils/difficulty";
 
 function draftTeam(seed: string): IUserTeam {
   const formation = formations[0];
@@ -35,7 +46,7 @@ function draftTeam(seed: string): IUserTeam {
 
   return {
     name: "Teste FC",
-    difficulty: "hard",
+    difficulty: "normal",
     formationId: formation.id,
     playStyleId: "pressao-alta",
     formationMentality: "balanced",
@@ -183,6 +194,13 @@ describe("offline game engine", () => {
     expect(Object.keys(season.userTeam.playerStates)).toHaveLength(16);
   });
 
+  it("normalizes the old hard difficulty and keeps the game easier", () => {
+    expect(normalizeDifficulty("hard")).toBe("normal");
+    expect(normalizeDifficulty("normal")).toBe("normal");
+    expect(opponentDifficultyBonus("normal")).toBe(0);
+    expect(opponentDifficultyBonus("challenger")).toBe(3);
+  });
+
   it("builds the 2026 competition formats", () => {
     const userTeam = draftTeam("formats");
     const season = createInitialSeason(userTeam, "formats-seed");
@@ -255,6 +273,56 @@ describe("offline game engine", () => {
     expect(season.trophies).toContain("copaDoBrasil");
   });
 
+  it("locks Libertadores until G4 Brasileirao or Copa do Brasil title", () => {
+    const userTeam = draftTeam("lib-lock");
+    const season = createInitialSeason(userTeam, "lib-lock-seed");
+
+    expect(isCompetitionUnlocked(season, "libertadores")).toBe(false);
+    expect(getNextMatch(season, "libertadores")).toBeUndefined();
+
+    let copaChampion = season;
+    season.matches
+      .filter((match) => match.competitionId === "copaDoBrasil")
+      .forEach((match) => {
+        copaChampion = applyMatchResult(copaChampion, match.id, resultFor(match, 2, 0));
+      });
+
+    expect(copaChampion.trophies).toContain("copaDoBrasil");
+    expect(isCompetitionUnlocked(copaChampion, "libertadores")).toBe(true);
+    expect(getNextMatch(copaChampion, "libertadores")?.competitionId).toBe("libertadores");
+
+    let brasileiraoG4 = season;
+    season.matches
+      .filter((match) => match.competitionId === "brasileirao")
+      .forEach((match) => {
+        brasileiraoG4 = applyMatchResult(brasileiraoG4, match.id, resultFor(match, 4, 0));
+      });
+
+    expect(isCompetitionUnlocked(brasileiraoG4, "libertadores")).toBe(true);
+  });
+
+  it("locks Mundial until Libertadores title", () => {
+    const userTeam = draftTeam("world-lock");
+    let season = createInitialSeason(userTeam, "world-lock-seed");
+
+    expect(isCompetitionUnlocked(season, "mundial")).toBe(false);
+
+    season.matches
+      .filter((match) => match.competitionId === "copaDoBrasil")
+      .forEach((match) => {
+        season = applyMatchResult(season, match.id, resultFor(match, 2, 0));
+      });
+    season.matches
+      .filter((match) => match.competitionId === "libertadores")
+      .forEach((match) => {
+        season = applyMatchResult(season, match.id, resultFor(match, 2, 0));
+      });
+
+    expect(season.trophies).toContain("libertadores");
+    expect(isCompetitionUnlocked(season, "mundial")).toBe(true);
+    expect(getNextMatch(season, "mundial")?.competitionId).toBe("mundial");
+  });
+
   it("resolves two-legged knockout phases by aggregate", () => {
     const userTeam = draftTeam("aggregate");
     let season = createInitialSeason(userTeam, "aggregate-seed");
@@ -277,6 +345,29 @@ describe("offline game engine", () => {
 
     expect(draws.length).toBeGreaterThan(0);
     expect(draws.every((result) => result.userGoals !== result.opponentGoals)).toBe(true);
+  });
+
+  it("can simulate only the selected competition", () => {
+    const userTeam = draftTeam("skip-one");
+    const season = createInitialSeason(userTeam, "skip-one-seed");
+    const skippedMineiro = simulateCompetitionUntilEnd(season, "mineiro", "skip-mineiro");
+
+    expect(skippedMineiro.records.mineiro.played).toBeGreaterThan(0);
+    expect(skippedMineiro.records.brasileirao.played).toBe(0);
+    expect(skippedMineiro.records.copaDoBrasil.played).toBe(0);
+    expect(skippedMineiro.finished).toBe(false);
+  });
+
+  it("builds an opponent pre-match squad with 11 real-name players", () => {
+    const userTeam = draftTeam("opponent-squad");
+    const season = createInitialSeason(userTeam, "opponent-squad-seed");
+    const match = getNextMatch(season)!;
+    const squad = getOpponentSquad(match.opponent);
+
+    expect(season.userTeam.starters).toHaveLength(11);
+    expect(season.userTeam.bench).toHaveLength(5);
+    expect(squad).toHaveLength(11);
+    expect(squad.every((player) => player.name && player.overall > 0)).toBe(true);
   });
 
   it("simulates matches deterministically with a seed", () => {

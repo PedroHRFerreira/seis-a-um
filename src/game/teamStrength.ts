@@ -121,5 +121,5 @@ export function calculateTeamStrength(
 }
 
 export function opponentDifficultyBonus(difficulty: IUserTeam["difficulty"]) {
-  return difficulty === "challenger" ? 5 : 2;
+  return difficulty === "challenger" ? 3 : 0;
 }
